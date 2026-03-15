@@ -13,6 +13,13 @@ if [[ ! -f "$(dirname "$0")/post-install.sh" ]]; then
     chmod +x post-install.sh
 fi
 
+REPO_RAW="https://raw.githubusercontent.com/404Prabhat/arch-installer/main"
+if [[ ! -f "$(dirname "$0")/post-install.sh" ]]; then
+    echo "Downloading post-install.sh..."
+    curl -sLO "$REPO_RAW/post-install.sh"
+    chmod +x post-install.sh
+fi
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
