@@ -181,9 +181,13 @@ cat > /tmp/archinstall-config.json << JSONEOF
         "docker", "docker-compose"
     ],
     "profile_config": {
-        "gfx_driver": "All open-source (default)",
+        "gfx_driver": "None",
         "greeter": "sddm",
-        "profile": { "custom_settings": {}, "details": [], "main": "minimal" }
+        "profile": {
+            "custom_settings": {},
+            "details": [],
+            "main": "minimal"
+        }
     },
     "swap": false,
     "timezone": "$TIMEZONE",
