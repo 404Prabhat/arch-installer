@@ -8,16 +8,14 @@ set -e
 
 REPO_RAW="https://raw.githubusercontent.com/404Prabhat/arch-installer/main"
 
-# Auto-download post-install.sh if not present
-if [[ ! -f "$(dirname "$0")/post-install.sh" ]]; then
-    echo "Downloading post-install.sh..."
-    curl -sLO "$REPO_RAW/post-install.sh"
-    chmod +x post-install.sh
-fi
+# Always download fresh post-install.sh to /tmp
+echo "Fetching post-install.sh..."
+curl -sL "$REPO_RAW/post-install.sh" -o /tmp/post-install.sh
+chmod +x /tmp/post-install.sh
 
 # Safety guard — must be run from Arch live ISO only
 if ! grep -q "archiso" /etc/hostname 2>/dev/null; then
-    echo -e "\033[0;31m⛔ This must be run from an Arch live ISO — not your existing install!\033[0m"
+    echo -e "\033[0;31m⛔ This must be run from an Arch live ISO!\033[0m"
     echo -e "\033[0;31m   Boot from archlinux-*.iso and run this from there.\033[0m"
     exit 1
 fi
@@ -44,14 +42,12 @@ banner
 
 echo -e "${BOLD}Just answer a few quick questions — then walk away ☕${NC}\n"
 
-# ── Username ──────────────────────────────────────────────────
 read -p "$(echo -e ${YELLOW}"Enter your username: "${NC})" USERNAME
 while [[ -z "$USERNAME" || "$USERNAME" =~ [^a-z0-9_-] ]]; do
     echo -e "${RED}Invalid. Use only lowercase letters, numbers, - or _${NC}"
     read -p "$(echo -e ${YELLOW}"Enter your username: "${NC})" USERNAME
 done
 
-# ── Passwords ─────────────────────────────────────────────────
 while true; do
     read -sp "$(echo -e ${YELLOW}"Password for $USERNAME: "${NC})" PASSWORD; echo
     read -sp "$(echo -e ${YELLOW}"Confirm password: "${NC})" PASSWORD2; echo
@@ -66,34 +62,25 @@ while true; do
     echo -e "${RED}Passwords don't match.${NC}"
 done
 
-# ── Hostname ──────────────────────────────────────────────────
 read -p "$(echo -e ${YELLOW}"Hostname (default: archbox): "${NC})" HOSTNAME
 HOSTNAME=${HOSTNAME:-archbox}
 
-# ── Disk ──────────────────────────────────────────────────────
 echo -e "\n${BOLD}Available disks:${NC}"
 lsblk -d -o NAME,SIZE,MODEL | grep -v loop
 echo ""
 read -p "$(echo -e ${YELLOW}"Disk to install on (e.g. nvme0n1): "${NC})" DISK
 DISK=${DISK:-nvme0n1}
 
-# ── Timezone ──────────────────────────────────────────────────
 read -p "$(echo -e ${YELLOW}"Timezone (default: Asia/Kathmandu): "${NC})" TIMEZONE
 TIMEZONE=${TIMEZONE:-Asia/Kathmandu}
 
-# ── Wallpaper directory ───────────────────────────────────────
 read -p "$(echo -e ${YELLOW}"Wallpaper folder name in ~/Pictures (default: Wallpapers): "${NC})" WALLDIR
 WALLDIR=${WALLDIR:-Wallpapers}
 
-# ── Noctalia color scheme ─────────────────────────────────────
 echo ""
 echo -e "${BOLD}Noctalia Color Schemes:${NC}"
-echo "  1) Tokyo Night  (dark blue/purple — popular)"
-echo "  2) Catppuccin Mocha  (warm dark)"
-echo "  3) Gruvbox  (earthy warm tones)"
-echo "  4) Nord  (cool arctic blues)"
-echo "  5) Dracula  (purple/pink dark)"
-read -p "$(echo -e ${YELLOW}"Pick a color scheme (1-5, default: 1): "${NC})" SCHEME_CHOICE
+echo "  1) Tokyo Night  2) Catppuccin Mocha  3) Gruvbox  4) Nord  5) Dracula"
+read -p "$(echo -e ${YELLOW}"Pick (1-5, default: 1): "${NC})" SCHEME_CHOICE
 case "$SCHEME_CHOICE" in
     2) COLOR_SCHEME="Catppuccin Mocha" ;;
     3) COLOR_SCHEME="Gruvbox" ;;
@@ -102,7 +89,6 @@ case "$SCHEME_CHOICE" in
     *) COLOR_SCHEME="Tokyo Night" ;;
 esac
 
-# ── Summary ───────────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}═══════════════════════════════════════════${NC}"
 echo -e "${BOLD}  INSTALLATION SUMMARY${NC}"
@@ -123,7 +109,6 @@ echo ""
 read -p "$(echo -e ${YELLOW}"Type YES to continue: "${NC})" CONFIRM
 [[ "$CONFIRM" != "YES" ]] && echo "Aborted." && exit 1
 
-# ── Generate archinstall config ───────────────────────────────
 echo -e "\n${BLUE}Generating install config...${NC}"
 
 cat > /tmp/archinstall-config.json << JSONEOF
@@ -155,11 +140,11 @@ cat > /tmp/archinstall-config.json << JSONEOF
                     },
                     {
                         "btrfs_subvolumes": [
-                            { "compress": false, "mountpoint": "/",           "name": "@",          "nodatacow": false },
-                            { "compress": false, "mountpoint": "/home",        "name": "@home",      "nodatacow": false },
-                            { "compress": false, "mountpoint": "/var/log",     "name": "@log",       "nodatacow": false },
-                            { "compress": false, "mountpoint": "/var/cache",   "name": "@cache",     "nodatacow": false },
-                            { "compress": false, "mountpoint": "/.snapshots",  "name": "@snapshots", "nodatacow": false }
+                            { "compress": false, "mountpoint": "/",          "name": "@",          "nodatacow": false },
+                            { "compress": false, "mountpoint": "/home",       "name": "@home",      "nodatacow": false },
+                            { "compress": false, "mountpoint": "/var/log",    "name": "@log",       "nodatacow": false },
+                            { "compress": false, "mountpoint": "/var/cache",  "name": "@cache",     "nodatacow": false },
+                            { "compress": false, "mountpoint": "/.snapshots", "name": "@snapshots", "nodatacow": false }
                         ],
                         "flags": [],
                         "fs_type": "btrfs",
@@ -177,11 +162,7 @@ cat > /tmp/archinstall-config.json << JSONEOF
     },
     "hostname": "$HOSTNAME",
     "kernels": ["linux"],
-    "locale_config": {
-        "kb_layout": "us",
-        "sys_enc": "UTF-8",
-        "sys_lang": "en_US"
-    },
+    "locale_config": { "kb_layout": "us", "sys_enc": "UTF-8", "sys_lang": "en_US" },
     "network_config": { "type": "nm" },
     "ntp": true,
     "packages": [
@@ -224,15 +205,10 @@ cat > /tmp/archinstall-creds.json << CREDEOF
 }
 CREDEOF
 
-# ── Embed variables into post-install script ──────────────────
-SCRIPT_DIR="$(dirname "$0")"
-cp "$SCRIPT_DIR/post-install.sh" /tmp/post-install.sh
-chmod +x /tmp/post-install.sh
 sed -i "s|__USERNAME__|$USERNAME|g"         /tmp/post-install.sh
 sed -i "s|__COLOR_SCHEME__|$COLOR_SCHEME|g" /tmp/post-install.sh
 sed -i "s|__WALLDIR__|$WALLDIR|g"           /tmp/post-install.sh
 
-# ── Run archinstall ───────────────────────────────────────────
 echo -e "\n${GREEN}Launching archinstall...${NC}\n"
 sleep 2
 
@@ -241,7 +217,6 @@ archinstall \
     --creds  /tmp/archinstall-creds.json  \
     --silent
 
-# ── Mount new root and inject post-install ────────────────────
 echo -e "\n${BLUE}Injecting post-install into new system...${NC}"
 
 PART2=""
@@ -251,7 +226,6 @@ fi
 
 if [ -n "$PART2" ]; then
     mount -o subvol=@ "$PART2" /mnt
-
     mkdir -p /mnt/root/setup
     cp /tmp/post-install.sh /mnt/root/setup/post-install.sh
 
@@ -280,15 +254,14 @@ SVCEOF
     umount -R /mnt 2>/dev/null || true
     echo -e "${GREEN}✓ Post-install injected${NC}"
 else
-    echo -e "${YELLOW}⚠️  Could not auto-inject post-install.${NC}"
-    echo -e "${YELLOW}   After reboot, run: bash /root/setup/post-install.sh${NC}"
+    echo -e "${YELLOW}⚠️  Could not auto-inject. After reboot run: bash /root/setup/post-install.sh${NC}"
 fi
 
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║   Base install done! Rebooting...                    ║${NC}"
+echo -e "${GREEN}║   Base install complete! Rebooting...                ║${NC}"
 echo -e "${GREEN}║   Post-install runs automatically on first boot.     ║${NC}"
-echo -e "${GREEN}║   Full setup ready after second reboot (~15-25 min)  ║${NC}"
+echo -e "${GREEN}║   Full setup ready after 2nd reboot (~15-25 min)    ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════════════╝${NC}"
 echo ""
 read -p "Press Enter to reboot..."
