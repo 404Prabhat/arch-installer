@@ -15,17 +15,11 @@ if [[ ! -f "$(dirname "$0")/post-install.sh" ]]; then
     chmod +x post-install.sh
 fi
 
-# Safety guard — block running on existing installs
-if grep -q "archiso" /etc/hostname 2>/dev/null || [ ! -d /home ]; then
-    : # we are on live ISO, continue
-else
-    echo -e "\033[0;31m⛔ This looks like an existing install — not a live ISO!\033[0m"
-    echo -e "\033[0;31m   Boot from an Arch live ISO before running this.\033[0m"
+# Safety guard — must be run from Arch live ISO only
+if ! grep -q "archiso" /etc/hostname 2>/dev/null; then
+    echo -e "\033[0;31m⛔ This must be run from an Arch live ISO — not your existing install!\033[0m"
+    echo -e "\033[0;31m   Boot from archlinux-*.iso and run this from there.\033[0m"
     exit 1
-fi
-
-
-fi
 fi
 
 RED='\033[0;31m'
@@ -87,7 +81,7 @@ DISK=${DISK:-nvme0n1}
 read -p "$(echo -e ${YELLOW}"Timezone (default: Asia/Kathmandu): "${NC})" TIMEZONE
 TIMEZONE=${TIMEZONE:-Asia/Kathmandu}
 
-# ── Wallpaper directory preference ────────────────────────────
+# ── Wallpaper directory ───────────────────────────────────────
 read -p "$(echo -e ${YELLOW}"Wallpaper folder name in ~/Pictures (default: Wallpapers): "${NC})" WALLDIR
 WALLDIR=${WALLDIR:-Wallpapers}
 
@@ -231,14 +225,15 @@ cat > /tmp/archinstall-creds.json << CREDEOF
 CREDEOF
 
 # ── Embed variables into post-install script ──────────────────
-cp "$(dirname "$0")/post-install.sh" /tmp/post-install.sh
+SCRIPT_DIR="$(dirname "$0")"
+cp "$SCRIPT_DIR/post-install.sh" /tmp/post-install.sh
 chmod +x /tmp/post-install.sh
-sed -i "s|__USERNAME__|$USERNAME|g"     /tmp/post-install.sh
+sed -i "s|__USERNAME__|$USERNAME|g"         /tmp/post-install.sh
 sed -i "s|__COLOR_SCHEME__|$COLOR_SCHEME|g" /tmp/post-install.sh
-sed -i "s|__WALLDIR__|$WALLDIR|g"       /tmp/post-install.sh
+sed -i "s|__WALLDIR__|$WALLDIR|g"           /tmp/post-install.sh
 
 # ── Run archinstall ───────────────────────────────────────────
-echo -e "\n${GREEN}Launching archinstall — this is the base OS install...${NC}\n"
+echo -e "\n${GREEN}Launching archinstall...${NC}\n"
 sleep 2
 
 archinstall \
@@ -250,10 +245,8 @@ archinstall \
 echo -e "\n${BLUE}Injecting post-install into new system...${NC}"
 
 PART2=""
-if [ -e "/dev/${DISK}p2" ]; then
-    PART2="/dev/${DISK}p2"
-elif [ -e "/dev/${DISK}2" ]; then
-    PART2="/dev/${DISK}2"
+if   [ -e "/dev/${DISK}p2" ]; then PART2="/dev/${DISK}p2"
+elif [ -e "/dev/${DISK}2"  ]; then PART2="/dev/${DISK}2"
 fi
 
 if [ -n "$PART2" ]; then
@@ -287,16 +280,15 @@ SVCEOF
     umount -R /mnt 2>/dev/null || true
     echo -e "${GREEN}✓ Post-install injected${NC}"
 else
-    echo -e "${YELLOW}⚠️  Could not mount new partition to inject post-install.${NC}"
-    echo -e "${YELLOW}   Copy post-install.sh manually after boot and run as root.${NC}"
+    echo -e "${YELLOW}⚠️  Could not auto-inject post-install.${NC}"
+    echo -e "${YELLOW}   After reboot, run: bash /root/setup/post-install.sh${NC}"
 fi
 
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║   Base install done!                                 ║${NC}"
-echo -e "${GREEN}║   Reboot → post-install runs automatically           ║${NC}"
-echo -e "${GREEN}║   Full Noctalia + Niri setup will be ready after     ║${NC}"
-echo -e "${GREEN}║   the second reboot (~15-25 min depending on speed)  ║${NC}"
+echo -e "${GREEN}║   Base install done! Rebooting...                    ║${NC}"
+echo -e "${GREEN}║   Post-install runs automatically on first boot.     ║${NC}"
+echo -e "${GREEN}║   Full setup ready after second reboot (~15-25 min)  ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════════════╝${NC}"
 echo ""
 read -p "Press Enter to reboot..."
