@@ -7,18 +7,24 @@
 set -e
 
 REPO_RAW="https://raw.githubusercontent.com/404Prabhat/arch-installer/main"
+
+# Auto-download post-install.sh if not present
 if [[ ! -f "$(dirname "$0")/post-install.sh" ]]; then
     echo "Downloading post-install.sh..."
     curl -sLO "$REPO_RAW/post-install.sh"
     chmod +x post-install.sh
+fi
 
-# ── Safety guard — prevent running on existing install ────────
-if [ -f /etc/os-release ] && grep -q "ID=" /etc/os-release && [ "$(cat /proc/1/comm)" != "systemd-boot" ]; then
-    if ! grep -q "archiso" /etc/hostname 2>/dev/null && [ -d /home ]; then
-        echo -e "\033[0;31m⛔ This looks like an existing install, not a live ISO!\033[0m"
-        echo -e "\033[0;31m   Boot from an Arch live ISO before running this.\033[0m"
-        exit 1
-    fi
+# Safety guard — block running on existing installs
+if grep -q "archiso" /etc/hostname 2>/dev/null || [ ! -d /home ]; then
+    : # we are on live ISO, continue
+else
+    echo -e "\033[0;31m⛔ This looks like an existing install — not a live ISO!\033[0m"
+    echo -e "\033[0;31m   Boot from an Arch live ISO before running this.\033[0m"
+    exit 1
+fi
+
+
 fi
 fi
 
